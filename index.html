@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitigasi Bencana - SMKS PGRI Labuan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-image: url('https://i.imgur.com/LY8VPbQ.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Overlay gelap agar background tidak terlalu terang */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: -1;
+        }
+
+        .game-container {
+            width: 95%;
+            max-width: 600px;
+            margin: 20px auto;
+            background: rgba(255, 255, 255, 0.92); /* Sedikit transparan agar menyatu */
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            min-height: 650px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .menu-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid #f1f5f9;
+            background: white;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-5px);
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .btn-choice {
+            transition: all 0.2s;
+            border: 2px solid #f1f5f9;
+            background: white;
+        }
+
+        .btn-choice:hover {
+            transform: scale(1.02);
+            background-color: #f0f9ff;
+            border-color: #3b82f6;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background-color: rgba(226, 232, 240, 0.5);
+            border-radius: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            border-radius: 10px;
+            transition: width 0.4s ease;
+        }
+
+        .dashboard-pill {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(4px);
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .input-field {
+            border: 2px solid #e2e8f0;
+            transition: border-color 0.3s;
+            background: white;
+        }
+
+        .input-field:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+
+        #game-canvas {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background: #e0f2fe;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        .falling-item {
+            position: absolute;
+            font-size: 2rem;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Audio Element -->
+<audio id="bgMusic" loop>
+    <source src="https://github.com/rahmantoyusup-ux/backsound/raw/refs/heads/main/Planning_for_the_Unforeseen.mp3" type="audio/mpeg">
+</audio>
+
+<div class="game-container" id="game-screen">
+    <!-- Dashboard / Header -->
+    <div id="dashboard" class="hidden p-4 bg-blue-600 text-white shadow-lg">
+        <div class="flex justify-between items-center mb-3">
+            <div class="flex flex-col">
+                <span id="display-name" class="font-bold text-sm leading-tight">Nama</span>
+                <span id="display-class" class="text-blue-100 text-xs">Kelas</span>
+            </div>
+            <div class="flex gap-2">
+                <div id="timer-pill" class="dashboard-pill">⏱️ <span id="timer-display">00:00</span></div>
+                <div class="dashboard-pill">⭐ <span id="score-display">0</span></div>
+            </div>
+        </div>
+        <div id="progress-container" class="progress-bar">
+            <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="content" class="p-6 flex-grow flex flex-col justify-center items-center text-center">
+        <!-- Login Form (Initial) -->
+        <div id="login-form" class="w-full">
+            <div class="mb-6">
+                <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-4">⛑️</div>
+                <h2 class="text-2xl font-bold text-gray-800">E-Learning Mitigasi</h2>
+                <p class="text-gray-500 text-sm italic font-semibold">SMKS PGRI Labuan</p>
+            </div>
+            
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Nama Lengkap</label>
+                    <input type="text" id="player-name" placeholder="Nama Anda" class="input-field w-full p-3 rounded-xl shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Kelas</label>
+                    <input type="text" id="player-class" placeholder="Contoh: X-TKJ" class="input-field w-full p-3 rounded-xl shadow-sm">
+                </div>
+                <button onclick="goToLobby()" class="w-full bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">
+                    Masuk ke Menu Utama
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div id="audio-control" class="hidden absolute bottom-4 right-4 z-50">
+        <button onclick="toggleMusic()" id="music-btn" class="w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center border border-gray-100 text-xl">
+            🔊
+        </button>
+    </div>
+
+    <!-- Copyright -->
+    <div class="p-3 text-center text-[10px] text-gray-400 bg-gray-50 border-t border-gray-100 uppercase tracking-widest">
+        Copyright &copy; 2024 Desma SMKS PGRI Labuan
+    </div>
+</div>
+
+<script>
+    // State Management
+    let userData = { name: '', class: '' };
+    let score = 0;
+    let timerInterval;
+    let secondsElapsed = 0;
+    let isMusicPlaying = false;
+    let currentQuizStep = 0;
+
+    const bgMusic = document.getElementById('bgMusic');
+    const contentDiv = document.getElementById('content');
+    const dashboard = document.getElementById('dashboard');
+    const audioControl = document.getElementById('audio-control');
+    const timerDisplay = document.getElementById('timer-display');
+    const scoreDisplay = document.getElementById('score-display');
+    const progressFill = document.getElementById('progress-fill');
+    const gameScreen = document.getElementById('game-screen');
+
+    const quizData = [
+        {
+            id: 1, category: 'Gempa Bumi',
+            question: 'Jika gempa terjadi saat kamu di lantai 2 sekolah, apa tindakan terbaik?',
+            choices: [
+                { text: 'Loncat melalui jendela', correct: false, feedback: 'Sangat berbahaya dan fatal!' },
+                { text: 'Berlindung di bawah meja dan lindungi kepala', correct: true, feedback: 'Benar! Utamakan perlindungan kepala.' },
+                { text: 'Berlari ke lift', correct: false, feedback: 'Lift bisa macet dan menjebakmu.' }
+            ]
+        },
+        {
+            id: 2, category: 'Tsunami',
+            question: 'Setelah gempa besar di pesisir, air laut surut tiba-tiba. Apa artinya?',
+            choices: [
+                { text: 'Waktunya mencari ikan terdampar', correct: false, feedback: 'Sangat berbahaya! Tsunami akan datang.' },
+                { text: 'Segera lari ke tempat yang lebih tinggi', correct: true, feedback: 'Tepat! Itu tanda peringatan tsunami.' },
+                { text: 'Diam dan berfoto-foto', correct: false, feedback: 'Keselamatan lebih penting dari konten.' }
+            ]
+        },
+        {
+            id: 3, category: 'Erupsi Gunung Api',
+            question: 'Saat terjadi hujan abu vulkanik, alat pelindung diri apa yang paling wajib digunakan?',
+            choices: [
+                { text: 'Masker dan kacamata pelindung', correct: true, feedback: 'Tepat! Abu vulkanik sangat berbahaya bagi paru-paru dan mata.' },
+                { text: 'Payung saja', correct: false, feedback: 'Kurang cukup, abu halus masih bisa terhirup.' },
+                { text: 'Jas hujan plastik', correct: false, feedback: 'Jas hujan melindungi tubuh, tapi pernapasan lebih utama.' }
+            ]
+        }
+    ];
+
+    function goToLobby() {
+        const name = document.getElementById('player-name').value;
+        const cls = document.getElementById('player-class').value;
+
+        if (!name || !cls) {
+            alert("Harap isi identitas!");
+            return;
+        }
+
+        userData.name = name;
+        userData.class = cls;
+
+        document.getElementById('display-name').innerText = name;
+        document.getElementById('display-class').innerText = cls;
+        
+        dashboard.classList.remove('hidden');
+        document.getElementById('progress-container').classList.add('hidden');
+        document.getElementById('timer-pill').classList.add('hidden');
+        audioControl.classList.remove('hidden');
+        
+        if (!isMusicPlaying) {
+            bgMusic.play().catch(() => {});
+            isMusicPlaying = true;
+        }
+
+        renderLobby();
+    }
+
+    function renderLobby() {
+        gameActive = false;
+        clearInterval(timerInterval);
+        contentDiv.innerHTML = `
+            <h2 class="text-xl font-bold mb-6 text-gray-800 underline decoration-blue-500 underline-offset-8">MENU UTAMA</h2>
+            <div class="grid grid-cols-1 gap-4 w-full">
+                <div onclick="showTujuan()" class="menu-card p-4 rounded-2xl flex items-center shadow-sm">
+                    <div class="text-3xl mr-4">🎯</div>
+                    <div class="text-left">
+                        <p class="font-bold text-gray-800">Tujuan Pembelajaran</p>
+                        <p class="text-xs text-gray-500">Misi belajar hari ini</p>
+                    </div>
+                </div>
+                <div onclick="startQuiz()" class="menu-card p-4 rounded-2xl flex items-center shadow-sm">
+                    <div class="text-3xl mr-4">📝</div>
+                    <div class="text-left">
+                        <p class="font-bold text-gray-800">Latihan Soal</p>
+                        <p class="text-xs text-gray-500">Uji pemahaman kognitif</p>
+                    </div>
+                </div>
+                <div onclick="startMiniGame()" class="menu-card p-4 rounded-2xl flex items-center shadow-sm">
+                    <div class="text-3xl mr-4">🎮</div>
+                    <div class="text-left">
+                        <p class="font-bold text-gray-800">Game Seru</p>
+                        <p class="text-xs text-gray-500">Ketangkasan siaga bencana</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function showTujuan() {
+        contentDiv.innerHTML = `
+            <h2 class="text-xl font-bold mb-4 text-blue-600 underline underline-offset-4">Sasaran Belajar</h2>
+            <div class="text-left space-y-3 text-gray-700 mb-8 p-4 bg-blue-50 rounded-xl">
+                <p class="flex items-start"><span class="mr-2 text-blue-500 font-bold">1.</span> Mengidentifikasi potensi bencana di lingkungan sekitar.</p>
+                <p class="flex items-start"><span class="mr-2 text-blue-500 font-bold">2.</span> Melakukan tindakan penyelamatan diri yang tepat secara cepat.</p>
+                <p class="flex items-start"><span class="mr-2 text-blue-500 font-bold">3.</span> Memahami pentingnya perlengkapan darurat (Tas Siaga Bencana).</p>
+            </div>
+            <button onclick="renderLobby()" class="bg-gray-800 text-white px-10 py-2 rounded-full font-bold shadow-md hover:bg-black transition">Kembali ke Menu</button>
+        `;
+    }
+
+    // --- QUIZ LOGIC ---
+    function startQuiz() {
+        currentQuizStep = 0;
+        score = 0;
+        secondsElapsed = 0;
+        scoreDisplay.innerText = score;
+        document.getElementById('progress-container').classList.remove('hidden');
+        document.getElementById('timer-pill').classList.remove('hidden');
+        startTimer();
+        renderQuizItem();
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            secondsElapsed++;
+            const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+            const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${mins}:${secs}`;
+        }, 1000);
+    }
+
+    function renderQuizItem() {
+        const q = quizData[currentQuizStep];
+        progressFill.style.width = `${((currentQuizStep) / quizData.length) * 100}%`;
+        
+        contentDiv.innerHTML = `
+            <span class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-bold mb-4 uppercase tracking-tighter">${q.category}</span>
+            <h2 class="text-lg font-bold mb-6 text-gray-800 leading-snug">${q.question}</h2>
+            <div class="w-full space-y-3">
+                ${q.choices.map((choice, i) => `
+                    <button onclick="checkQuizAnswer(${i})" class="btn-choice w-full p-4 rounded-xl text-left shadow-sm flex items-center">
+                        <span class="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center mr-3 font-bold">${String.fromCharCode(65+i)}</span>
+                        <span class="text-sm font-medium">${choice.text}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function checkQuizAnswer(idx) {
+        const q = quizData[currentQuizStep];
+        const choice = q.choices[idx];
+        if(choice.correct) score += 33; // Disesuaikan dengan 3 soal
+        scoreDisplay.innerText = score;
+        
+        contentDiv.innerHTML = `
+            <div class="text-6xl mb-4">${choice.correct ? '🎉' : '❌'}</div>
+            <h3 class="font-bold text-lg ${choice.correct ? 'text-green-600' : 'text-red-600'} mb-2">${choice.correct ? 'Kamu Benar!' : 'Kurang Tepat'}</h3>
+            <p class="text-gray-600 mb-8 p-4 bg-gray-50 rounded-xl border-l-4 ${choice.correct ? 'border-green-400' : 'border-red-400'}">${choice.feedback}</p>
+            <button onclick="nextQuizStep()" class="bg-blue-600 text-white px-12 py-3 rounded-full font-bold shadow-lg">Lanjut</button>
+        `;
+    }
+
+    function nextQuizStep() {
+        currentQuizStep++;
+        if(currentQuizStep < quizData.length) renderQuizItem();
+        else {
+            clearInterval(timerInterval);
+            showFinalQuizResult();
+        }
+    }
+
+    function showFinalQuizResult() {
+        progressFill.style.width = '100%';
+        contentDiv.innerHTML = `
+            <div class="text-7xl mb-4">🏆</div>
+            <h2 class="text-2xl font-bold text-gray-800">Latihan Selesai!</h2>
+            <p class="text-gray-500 mb-6">Kerja bagus, ${userData.name}!</p>
+            <div class="bg-blue-50 p-6 rounded-2xl w-full mb-8">
+                <p class="text-sm text-blue-400 uppercase font-bold">Skor Akhir</p>
+                <p class="text-4xl font-black text-blue-600">${score}</p>
+                <p class="text-xs text-gray-400 mt-2">Waktu: ${timerDisplay.innerText}</p>
+            </div>
+            <button onclick="renderLobby()" class="bg-gray-800 text-white px-10 py-3 rounded-full font-bold transition hover:bg-black">Kembali ke Menu</button>
+        `;
+    }
+
+    // --- MINI GAME LOGIC ---
+    let gameActive = false;
+    function startMiniGame() {
+        score = 0;
+        scoreDisplay.innerText = score;
+        document.getElementById('timer-pill').classList.add('hidden');
+        document.getElementById('progress-container').classList.add('hidden');
+        
+        contentDiv.innerHTML = `
+            <div class="flex justify-between items-center w-full mb-4 px-2">
+                <h2 class="text-lg font-bold">Misi: Tangkap Item Siaga</h2>
+                <span class="text-xs font-bold text-red-500">Awas Api!</span>
+            </div>
+            <div id="game-canvas">
+                <div class="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                    <p class="text-2xl font-bold">Klik Item Penting</p>
+                </div>
+            </div>
+            <button onclick="renderLobby()" class="mt-6 bg-red-100 text-red-600 px-8 py-2 rounded-full text-sm font-bold border border-red-200">Selesai Bermain</button>
+        `;
+        
+        gameActive = true;
+        spawnItems();
+    }
+
+    function spawnItems() {
+        if(!gameActive) return;
+        const canvas = document.getElementById('game-canvas');
+        if(!canvas) return;
+
+        const items = [
+            {icon: '💊', points: 10, label: 'P3K'}, 
+            {icon: '🔦', points: 10, label: 'Senter'}, 
+            {icon: '💧', points: 10, label: 'Air'}, 
+            {icon: '🍞', points: 10, label: 'Roti'},
+            {icon: '🔥', points: -20, label: 'Api'}
+        ];
+        
+        const item = items[Math.floor(Math.random() * items.length)];
+        const el = document.createElement('div');
+        el.className = 'falling-item cursor-pointer transform hover:scale-125 transition-transform';
+        el.innerHTML = item.icon;
+        el.style.left = Math.random() * 85 + 5 + '%';
+        el.style.top = '-50px';
+        canvas.appendChild(el);
+
+        let pos = -50;
+        const fall = setInterval(() => {
+            if(!gameActive) { clearInterval(fall); el.remove(); return; }
+            pos += 3.5;
+            el.style.top = pos + 'px';
+            if(pos > 300) {
+                clearInterval(fall);
+                el.remove();
+            }
+        }, 30);
+
+        el.onclick = () => {
+            score += item.points;
+            scoreDisplay.innerText = score;
+            
+            // Visual feedback
+            const fb = document.createElement('span');
+            fb.innerText = item.points > 0 ? `+${item.points}` : item.points;
+            fb.className = `absolute font-bold ${item.points > 0 ? 'text-green-600' : 'text-red-600'}`;
+            fb.style.left = el.style.left;
+            fb.style.top = el.style.top;
+            canvas.appendChild(fb);
+            setTimeout(() => fb.remove(), 500);
+
+            el.innerHTML = item.points > 0 ? '✨' : '💥';
+            setTimeout(() => el.remove(), 200);
+            clearInterval(fall);
+            
+            if(item.points < 0) {
+                gameScreen.classList.add('shake');
+                setTimeout(() => gameScreen.classList.remove('shake'), 300);
+            }
+        };
+
+        setTimeout(spawnItems, 900);
+    }
+
+    function toggleMusic() {
+        if (isMusicPlaying) {
+            bgMusic.pause();
+            document.getElementById('music-btn').innerText = '🔇';
+        } else {
+            bgMusic.play();
+            document.getElementById('music-btn').innerText = '🔊';
+        }
+        isMusicPlaying = !isMusicPlaying;
+    }
+
+</script>
+
+</body>
+</html>
